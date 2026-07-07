@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tu panel</title>
+  <link rel="stylesheet" href="/estilos.css" />
+  <style>
+    .fila-stats {
+      display: flex;
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .stat {
+      flex: 1;
+      background: white;
+      border: 1px solid var(--borde);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat .numero {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--azul-oscuro);
+    }
+    .stat .etiqueta {
+      font-size: 13px;
+      color: var(--texto-suave);
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <span id="saludo">Cargando...</span>
+    <a href="#" id="cerrar-sesion">Cerrar sesión</a>
+  </nav>
+
+  <div class="contenedor" id="contenido" style="display:none;">
+    <div class="tarjeta">
+      <h2>Bienvenido/a de nuevo</h2>
+      <p>Este es el comienzo de tu ruta de aprendizaje. Aquí es donde va a vivir
+      tu mentor de inteligencia artificial, tus retos, y tu progreso — por ahora,
+      esto es un marcador de posición para seguir construyendo encima.</p>
+
+      <div class="fila-stats">
+        <div class="stat">
+          <div class="numero">1</div>
+          <div class="etiqueta">Nivel</div>
+        </div>
+        <div class="stat">
+          <div class="numero">0</div>
+          <div class="etiqueta">XP</div>
+        </div>
+        <div class="stat">
+          <div class="numero">0</div>
+          <div class="etiqueta">Racha (días)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <h3 style="margin-top:0;">Próximo paso</h3>
+      <p style="color:var(--texto-suave);">
+        Aquí es donde definiríamos tu primera ruta personalizada, según lo que
+        nos cuentes que quieres aprender. Todavía no está construido — es el
+        siguiente módulo del roadmap.
+      </p>
+    </div>
+  </div>
+
+  <div class="contenedor" id="sin-sesion" style="display:none;">
+    <div class="tarjeta">
+      <p>No encontramos una sesión activa.</p>
+      <a href="/iniciar-sesion" class="boton">Iniciar sesión</a>
+    </div>
+  </div>
+
+  <script>
+    async function cargar() {
+      const usuarioId = localStorage.getItem('usuarioId');
+      if (!usuarioId) {
+        document.getElementById('sin-sesion').style.display = 'block';
+        return;
+      }
+
+      try {
+        const respuesta = await fetch(`/api/usuario/${usuarioId}`);
+        if (!respuesta.ok) {
+          localStorage.removeItem('usuarioId');
+          document.getElementById('sin-sesion').style.display = 'block';
+          return;
+        }
+        const usuario = await respuesta.json();
+        document.getElementById('saludo').textContent = `Hola, ${usuario.nombreCompleto.split(' ')[0]}`;
+        document.getElementById('contenido').style.display = 'block';
+      } catch (err) {
+        document.getElementById('sin-sesion').style.display = 'block';
+      }
+    }
+
+    document.getElementById('cerrar-sesion').addEventListener('click', (e) => {
+      e.preventDefault();
+      localStorage.removeItem('usuarioId');
+      window.location.href = '/';
+    });
+
+    cargar();
+  </script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autorización parental</title>
+  <link rel="stylesheet" href="/estilos.css" />
+</head>
+<body>
+  <nav>
+    <a href="/">← Volver al inicio</a>
+  </nav>
+
+  <div class="contenedor">
+    <div id="cargando">Cargando...</div>
+
+    <div id="contenido-autorizacion" class="oculto">
+      <h2 id="titulo-autorizacion"></h2>
+      <div class="tarjeta">
+        <p style="font-size:14px; color:var(--texto-suave);">
+          Solicitado como representante legal: <span id="nombre-representante"></span>
+        </p>
+
+        <div style="border:1px solid var(--borde); border-radius:10px; padding:16px; font-size:14px; margin:16px 0;">
+          <p><strong>Responsable del tratamiento:</strong> [Nombre legal de la empresa], NIT [xxx], Colombia.</p>
+          <p><strong>Datos que recolectamos:</strong> nombre, correo, fecha de nacimiento, progreso académico e interacciones con el mentor de inteligencia artificial.</p>
+          <p><strong>Finalidad:</strong> personalizar el aprendizaje de <span class="nombre-menor-inline"></span> y hacer seguimiento a su progreso. No usamos estos datos con fines publicitarios.</p>
+          <p><strong>Tus derechos:</strong> puedes conocer, actualizar, rectificar o suprimir estos datos, y revocar esta autorización cuando quieras escribiendo a privacidad@[tudominio].com.</p>
+          <p style="font-size:12px; color:var(--texto-suave);">Versión del documento: <span id="version-texto"></span></p>
+        </div>
+
+        <label style="display:flex; align-items:flex-start; gap:8px; font-weight:400; font-size:14px;">
+          <input type="checkbox" id="acepta" style="width:auto; margin-top:3px;" />
+          <span>He leído la información anterior y autorizo el tratamiento de los datos personales de <span class="nombre-menor-inline"></span> en los términos descritos.</span>
+        </label>
+
+        <button id="boton-confirmar" class="boton" disabled style="margin-top:16px; width:100%;">
+          Confirmar autorización
+        </button>
+      </div>
+    </div>
+
+    <div id="ya-confirmada" class="oculto">
+      <h2>Autorización confirmada</h2>
+      <div class="tarjeta">
+        <div class="exito">
+          La cuenta de <span id="nombre-menor-confirmado"></span> ya está activa. Puedes retirar esta autorización cuando quieras escribiéndonos a privacidad@[tudominio].com.
+        </div>
+      </div>
+    </div>
+
+    <div id="con-error" class="oculto">
+      <h2>Este enlace no es válido</h2>
+      <div class="tarjeta">
+        <div class="error" id="texto-error"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const parametros = new URLSearchParams(window.location.search);
+    const token = parametros.get('token');
+
+    function mostrarSolo(id) {
+      ['cargando', 'contenido-autorizacion', 'ya-confirmada', 'con-error'].forEach((otro) => {
+        document.getElementById(otro).classList.toggle('oculto', otro !== id);
+      });
+    }
+
+    async function cargar() {
+      if (!token) {
+        document.getElementById('texto-error').textContent = 'Falta el enlace de autorización.';
+        return mostrarSolo('con-error');
+      }
+
+      try {
+        const respuesta = await fetch(`/api/consentimiento/${token}`);
+        const datos = await respuesta.json();
+
+        if (!respuesta.ok) {
+          document.getElementById('texto-error').textContent = datos.error || 'Enlace inválido.';
+          return mostrarSolo('con-error');
+        }
+
+        if (datos.estado === 'confirmada') {
+          document.getElementById('nombre-menor-confirmado').textContent = datos.primerNombreMenor || '';
+          return mostrarSolo('ya-confirmada');
+        }
+
+        document.getElementById('titulo-autorizacion').textContent =
+          `Autorización para el tratamiento de datos de ${datos.primerNombreMenor}`;
+        document.getElementById('nombre-representante').textContent = datos.nombreRepresentante;
+        document.getElementById('version-texto').textContent = datos.versionTexto;
+        document.querySelectorAll('.nombre-menor-inline').forEach((el) => {
+          el.textContent = datos.primerNombreMenor;
+        });
+        mostrarSolo('contenido-autorizacion');
+      } catch (err) {
+        document.getElementById('texto-error').textContent = 'Ocurrió un error cargando esta página.';
+        mostrarSolo('con-error');
+      }
+    }
+
+    document.getElementById('acepta').addEventListener('change', (e) => {
+      document.getElementById('boton-confirmar').disabled = !e.target.checked;
+    });
+
+    document.getElementById('boton-confirmar').addEventListener('click', async () => {
+      const boton = document.getElementById('boton-confirmar');
+      boton.disabled = true;
+      boton.textContent = 'Confirmando...';
+      try {
+        const respuesta = await fetch(`/api/consentimiento/${token}/confirmar`, { method: 'POST' });
+        if (!respuesta.ok) {
+          const datos = await respuesta.json();
+          document.getElementById('texto-error').textContent = datos.error || 'No pudimos confirmar.';
+          return mostrarSolo('con-error');
+        }
+        await cargar();
+      } catch (err) {
+        document.getElementById('texto-error').textContent = 'Ocurrió un error. Intenta de nuevo.';
+        mostrarSolo('con-error');
+      }
+    });
+
+    cargar();
+  </script>
+</body>
+</html>

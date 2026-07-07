@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crear cuenta</title>
+  <link rel="stylesheet" href="/estilos.css" />
+</head>
+<body>
+  <nav>
+    <a href="/">← Volver</a>
+  </nav>
+
+  <div class="contenedor">
+
+    <!-- Paso 1: datos básicos -->
+    <div id="paso-datos-basicos">
+      <h2>Crea tu cuenta</h2>
+      <div class="tarjeta">
+        <div id="mensaje-basico"></div>
+        <form id="form-datos-basicos">
+          <label for="nombreCompleto">Nombre completo</label>
+          <input type="text" id="nombreCompleto" required />
+
+          <label for="correo">Correo</label>
+          <input type="email" id="correo" required />
+
+          <label for="fechaNacimiento">Fecha de nacimiento</label>
+          <input type="date" id="fechaNacimiento" required />
+          <div id="aviso-menor" class="aviso oculto">
+            Vas a necesitar la autorización de tu representante legal en el siguiente paso.
+          </div>
+
+          <label for="contrasena">Contraseña</label>
+          <input type="password" id="contrasena" minlength="8" required />
+
+          <button type="submit" class="boton">Continuar</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Paso 2: datos del representante legal (solo si es menor) -->
+    <div id="paso-representante" class="oculto">
+      <h2>Autorización de tu representante legal</h2>
+      <div class="tarjeta">
+        <p>Como eres menor de edad, necesitamos el nombre y correo de tu papá, mamá o tutor para pedirle autorización.</p>
+        <div id="mensaje-representante"></div>
+        <form id="form-representante">
+          <label for="nombreRepresentante">Nombre de tu representante legal</label>
+          <input type="text" id="nombreRepresentante" required />
+
+          <label for="correoRepresentante">Correo de tu representante legal</label>
+          <input type="email" id="correoRepresentante" required />
+
+          <button type="button" id="boton-volver" class="boton boton-secundario">Volver</button>
+          <button type="submit" class="boton">Enviar solicitud</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Paso 3: esperando autorización -->
+    <div id="paso-esperando" class="oculto">
+      <h2>Necesitamos una autorización</h2>
+      <div class="tarjeta">
+        <p>Enviamos un correo a <strong id="correo-representante-mostrado"></strong> para confirmar la autorización. En cuanto la confirme, tu cuenta quedará activa.</p>
+        <p style="color:var(--texto-suave); font-size:14px;">
+          Esta es una versión de prueba: para "abrir" el correo simulado, ve a
+          <a href="/admin/correos">/admin/correos</a>.
+        </p>
+      </div>
+    </div>
+
+    <!-- Paso 4: cuenta creada -->
+    <div id="paso-listo" class="oculto">
+      <h2>Cuenta creada</h2>
+      <div class="tarjeta">
+        <p>Ya puedes empezar a usar la plataforma.</p>
+        <a href="/iniciar-sesion" class="boton">Iniciar sesión</a>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const EDAD_MINIMA_AUTORIZACION = 18;
+    let datosBasicos = {};
+
+    function calcularEdad(fechaNacimiento) {
+      const hoy = new Date();
+      const nacimiento = new Date(fechaNacimiento);
+      let edad = hoy.getFullYear() - nacimiento.getFullYear();
+      const mes = hoy.getMonth() - nacimiento.getMonth();
+      if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) edad--;
+      return edad;
+    }
+
+    function mostrarSolo(idVisible) {
+      ['paso-datos-basicos', 'paso-representante', 'paso-esperando', 'paso-listo'].forEach((id) => {
+        document.getElementById(id).classList.toggle('oculto', id !== idVisible);
+      });
+    }
+
+    document.getElementById('fechaNacimiento').addEventListener('change', (e) => {
+      const edad = calcularEdad(e.target.value);
+      document.getElementById('aviso-menor').classList.toggle('oculto', edad >= EDAD_MINIMA_AUTORIZACION);
+    });
+
+    document.getElementById('form-datos-basicos').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      datosBasicos = {
+        nombreCompleto: document.getElementById('nombreCompleto').value,
+        correo: document.getElementById('correo').value,
+        fechaNacimiento: document.getElementById('fechaNacimiento').value,
+        contrasena: document.getElementById('contrasena').value,
+      };
+      const edad = calcularEdad(datosBasicos.fechaNacimiento);
+
+      if (edad < EDAD_MINIMA_AUTORIZACION) {
+        mostrarSolo('paso-representante');
+      } else {
+        await enviarRegistro({});
+      }
+    });
+
+    document.getElementById('boton-volver').addEventListener('click', () => {
+      mostrarSolo('paso-datos-basicos');
+    });
+
+    document.getElementById('form-representante').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const extra = {
+        nombreRepresentante: document.getElementById('nombreRepresentante').value,
+        correoRepresentante: document.getElementById('correoRepresentante').value,
+      };
+      await enviarRegistro(extra);
+    });
+
+    async function enviarRegistro(extra) {
+      try {
+        const respuesta = await fetch('/api/registro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...datosBasicos, ...extra }),
+        });
+        const resultado = await respuesta.json();
+
+        if (!respuesta.ok) {
+          const contenedorError = extra.correoRepresentante
+            ? document.getElementById('mensaje-representante')
+            : document.getElementById('mensaje-basico');
+          contenedorError.innerHTML = `<div class="error">${resultado.error}</div>`;
+          return;
+        }
+
+        if (resultado.estado === 'pendiente_autorizacion_parental') {
+          document.getElementById('correo-representante-mostrado').textContent = extra.correoRepresentante;
+          mostrarSolo('paso-esperando');
+        } else {
+          mostrarSolo('paso-listo');
+        }
+      } catch (err) {
+        document.getElementById('mensaje-basico').innerHTML =
+          '<div class="error">Ocurrió un error. Intenta de nuevo.</div>';
+      }
+    }
+  </script>
+</body>
+</html>

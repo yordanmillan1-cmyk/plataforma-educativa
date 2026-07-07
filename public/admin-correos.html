@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Correos enviados (solo pruebas)</title>
+  <link rel="stylesheet" href="/estilos.css" />
+</head>
+<body>
+  <nav>
+    <a href="/">← Volver al inicio</a>
+  </nav>
+
+  <div class="contenedor">
+    <h2>Bandeja de correos simulados</h2>
+    <div class="aviso">
+      Esta página es solo para pruebas mientras no tengan conectado un
+      proveedor de correo real. No debe existir en la versión pública de la
+      página — cualquiera podría ver aquí los enlaces de autorización.
+    </div>
+    <div id="lista-correos"></div>
+  </div>
+
+  <script>
+    async function cargarCorreos() {
+      const clave = new URLSearchParams(window.location.search).get('clave') || '';
+      const respuesta = await fetch(`/api/admin/correos?clave=${encodeURIComponent(clave)}`);
+      if (!respuesta.ok) {
+        document.getElementById('lista-correos').innerHTML =
+          '<div class="error">No autorizado. Agrega ?clave=TU_CLAVE a la URL.</div>';
+        return;
+      }
+      const datos = await respuesta.json();
+      const lista = document.getElementById('lista-correos');
+
+      if (datos.correos.length === 0) {
+        lista.innerHTML = '<p style="color:var(--texto-suave);">Todavía no se ha enviado ningún correo.</p>';
+        return;
+      }
+
+      lista.innerHTML = datos.correos.map((correo) => `
+        <div class="correo-item">
+          <div class="meta">
+            Para: <strong>${correo.para}</strong> · ${new Date(correo.enviadoEn).toLocaleString('es-CO')}
+          </div>
+          <div style="font-weight:600; margin-bottom:8px;">${correo.asunto}</div>
+          <div>${correo.html}</div>
+        </div>
+      `).join('');
+    }
+
+    cargarCorreos();
+  </script>
+</body>
+</html>

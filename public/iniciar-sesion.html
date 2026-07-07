@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Iniciar sesión</title>
+  <link rel="stylesheet" href="/estilos.css" />
+</head>
+<body>
+  <nav>
+    <a href="/">← Volver</a>
+    <a href="/registro">Crear cuenta</a>
+  </nav>
+
+  <div class="contenedor">
+    <h2>Inicia sesión</h2>
+    <div class="tarjeta">
+      <div id="mensaje"></div>
+      <form id="form-login">
+        <label for="correo">Correo</label>
+        <input type="email" id="correo" required />
+
+        <label for="contrasena">Contraseña</label>
+        <input type="password" id="contrasena" required />
+
+        <button type="submit" class="boton">Entrar</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('form-login').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const correo = document.getElementById('correo').value;
+      const contrasena = document.getElementById('contrasena').value;
+      const mensaje = document.getElementById('mensaje');
+
+      try {
+        const respuesta = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ correo, contrasena }),
+        });
+        const datos = await respuesta.json();
+
+        if (!respuesta.ok) {
+          mensaje.innerHTML = `<div class="error">${datos.error}</div>`;
+          return;
+        }
+
+        // Demostración: guardamos el id del usuario en el navegador para
+        // que el panel sepa a quién mostrar. Antes de producción hay que
+        // reemplazar esto por una sesión real (cookie firmada o JWT).
+        localStorage.setItem('usuarioId', datos.id);
+        window.location.href = '/panel';
+      } catch (err) {
+        mensaje.innerHTML = '<div class="error">Ocurrió un error. Intenta de nuevo.</div>';
+      }
+    });
+  </script>
+</body>
+</html>
